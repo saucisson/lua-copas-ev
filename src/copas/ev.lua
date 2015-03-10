@@ -437,9 +437,9 @@ function Coevas.step (coevas)
   if #coevas._awaken == 0 then
     return false
   end
-  local co     = coevas._awaken  [1]
+  local co     = coevas._awaken [#coevas._awaken]
   local socket = coevas._sockets [co]
-  table.remove (coevas._awaken, 1)
+  coevas._awaken [#coevas._awaken] = nil
   if coevas._coroutine.status (co) ~= "dead" then
     local parameters = coevas._parameters [co] or {}
     coevas._parameters [co] = nil
