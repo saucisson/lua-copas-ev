@@ -474,6 +474,9 @@ Socket.Tcp.__index = {
   close = function (self)
     return self._socket:close ()
   end,
+  shutdown = function (self)
+    return self._socket:shutdown ()
+  end,
   getfd = function (self)
     return self._socket:getfd ()
   end,
@@ -506,6 +509,9 @@ Socket.Udp.__index = {
   end,
   close = function (self)
     return self._socket:close ()
+  end,
+  shutdown = function (self)
+    return self._socket:shutdown ()
   end,
   getfd = function (self)
     return self._socket:getfd ()
