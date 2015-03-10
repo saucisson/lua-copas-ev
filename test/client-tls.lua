@@ -29,10 +29,12 @@ for i = 1, nb_threads do
       protocol = "tlsv1_2",
     }
     skt:send (query)
+    skt:settimeout (1)
     repeat
       local message = skt:receive "*l"
       print (message)
     until message == nil
+    os.exit (0)
   end)
 end
 
