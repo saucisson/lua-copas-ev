@@ -358,7 +358,7 @@ function Coevas.setErrorHandler (coevas, err)
   end
 end
 
-function Coevas.defaultErrorHandler (_, msg, co, skt)
+function Coevas.defaultErrorHandler (msg, co, skt)
   print (msg, co, skt)
 end
 
