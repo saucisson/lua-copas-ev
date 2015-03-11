@@ -5,6 +5,8 @@ local nb_threads    = 500
 local nb_iterations = 500
 local finished      = 0
 
+copev.compatibility = false
+
 local nb = 0
 --local profiler = require "profiler"
 --profiler:start "data.ou"

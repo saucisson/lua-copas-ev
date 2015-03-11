@@ -24,10 +24,11 @@ for i = 1, nb_threads do
   copev.addthread (function ()
     local skt = copev.wrap (socket.tcp ())
     skt:connect ("www.google.com", 443)
-    skt:tls {
+    skt = ssl.wrap (skt, {
       mode     = "client",
       protocol = "tlsv1_2",
-    }
+    })
+    skt:dohandshake () 
     skt:send (query)
     skt:settimeout (1)
     repeat
