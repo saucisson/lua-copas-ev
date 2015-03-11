@@ -16,9 +16,7 @@ dependencies = {
    "coronest >= 0",
    "lua >= 5.1",
    "lua-ev >= 1.2",
-   "luabitop >= 1.0",
    "luasocket >= 2.0",
-   "luasec >= 0.5",
 }
 build = {
    type = "module",
