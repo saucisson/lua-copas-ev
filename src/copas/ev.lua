@@ -354,13 +354,18 @@ function Coevas.addthread (coevas, thread, ...)
 end
 
 function Coevas.sleep (coevas, time)
+  time = time or 0
   local co = coevas._coroutine.running ()
-  local on_timeout = ev.Timer.new (function (loop, watcher)
-    watcher:stop (loop)
-    coevas._awaken [#coevas._awaken+1] = co
-  end, time)
-  on_timeout:start (coevas._loop)
-  coevas._coroutine.yield ()
+  if time < 0 then
+    coevas._coroutine.yield ()
+  else
+    local on_timeout = ev.Timer.new (function (loop, watcher)
+      watcher:stop (loop)
+      coevas._awaken [#coevas._awaken+1] = co
+    end, time)
+    on_timeout:start (coevas._loop)
+    coevas._coroutine.yield ()
+  end
 end
 
 function Coevas.wakeup (coevas, co)
@@ -412,6 +417,10 @@ end
 function Coevas.loop (coevas)
   coevas._idle:start (coevas._loop)
   coevas._loop:loop ()
+end
+
+function Coevas.unloop (coevas)
+  coevas._loop:unloop ()
 end
 
 -- Socket Wrapper
