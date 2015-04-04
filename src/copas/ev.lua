@@ -21,6 +21,7 @@ function Coevas.new ()
     _sockets     = {},
     _awaken      = {},
     _idle        = nil,
+    _in_loop     = false,
   }
   for k, v in pairs (Coevas) do
     if type (v) == "function" then
@@ -415,12 +416,18 @@ function Coevas.step (coevas)
 end
 
 function Coevas.loop (coevas)
+  coevas._in_loop = true
   coevas._idle:start (coevas._loop)
   coevas._loop:loop ()
 end
 
 function Coevas.unloop (coevas)
   coevas._loop:unloop ()
+  coevas._in_loop = false
+end
+
+function Coevas.in_loop (coevas)
+  return coevas._in_loop
 end
 
 -- Socket Wrapper
