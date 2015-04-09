@@ -1,7 +1,8 @@
 package = "copas-ev"
-version = "master-1"
+version = "0.4-1"
 source = {
-  url = "git://github.com/saucisson/lua-copas-ev.git"
+  url = "git://github.com/saucisson/lua-copas-ev.git",
+  tag = "0.4",
 }
 description = {
    summary = "Copas using libev",
@@ -15,7 +16,7 @@ dependencies = {
    "copas >= 2",
    "coronest >= 0",
    "lua >= 5.1",
-   "lua-ev = scm-1",
+   "lua-ev >= scm-1",
    "luasocket >= 2",
 }
 build = {
