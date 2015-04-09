@@ -19,7 +19,9 @@ Hello, World!
 copev.addserver (server, function (skt)
   while true do
     local message = skt:receive "*l"
-    if message == "" then
+    if message == nil then
+      return
+    elseif message == "" then
       skt:send (answer)
       return
     end
