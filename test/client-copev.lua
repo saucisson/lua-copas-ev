@@ -2,7 +2,7 @@ local socket = require "socket"
 local copev  = require "copas.ev"
 
 local nb_threads    = 500
-local nb_iterations = 500
+local nb_iterations = 100
 local finished      = 0
 
 copev.compatibility = false
@@ -29,7 +29,6 @@ for i = 1, nb_threads do
       local average = math.floor (nb / (socket.gettime () - start))
       print ("# send/receive per second:", average)
 --      profiler:stop ()
-      os.exit (0)
     end
   end)
 end
