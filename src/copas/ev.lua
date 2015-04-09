@@ -98,8 +98,6 @@ function Coevas.addserver (coevas, socket, handler)
         end
         local co = coevas.addthread (handler, client)
         coevas._info [co]._socket = client
-      else
-        return nil, err
       end
     end
   end)
@@ -285,7 +283,6 @@ function Coevas.timeout (coevas, socket)
   socket:settimeout (0)
   return socket, result
 end
-
 
 function Coevas.accept (coevas, skt)
   local co             = coevas._coroutine.running ()
