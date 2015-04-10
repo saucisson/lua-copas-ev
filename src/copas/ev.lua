@@ -109,10 +109,11 @@ function Coevas.addserver (coevas, socket, handler)
   }
   coevas._sockets [socket] = co
   coevas.wakeup (co)
+  return co
 end
 
 function Coevas.removeserver (coevas, socket)
-  socket = coevas.raw (socket)
+  socket   = coevas.raw (socket)
   local co = coevas._sockets [socket]
   coevas.kill (co)
   return socket:close() 
@@ -169,7 +170,7 @@ function Coevas.kill (coevas, co)
     coevas._sockets [socket] = nil
   end
   if socket and coevas.autoclose then
-    socket:shutdown ()
+    --socket:shutdown ()
     socket:close    ()
   end
 end
