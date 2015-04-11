@@ -32,9 +32,9 @@ function Coevas.new ()
     _coroutine   = coroutine.make (),
     _loop        = ev.Loop.new (),
     _idle        = nil,
-    _info        = {}, -- co -> { _error, _level, _socket, }
-    _sockets     = {}, -- socket -> co
-    _threads     = {}, -- number -> { _ready, _waiting, }
+    _info        = setmetatable ({}, { __mode = "k" }),
+    _sockets     = setmetatable ({}, { __mode = "v" }),
+    _threads     = {},
   }
   result._idle = ev.Idle.new (function (loop, idle)
     if not result.step () then
@@ -60,7 +60,14 @@ end
 
 function Coevas.setErrorHandler (coevas, err)
   local co   = coevas._coroutine.running ()
-  local info = coevas._info [co] 
+  local info = coevas._info [co]
+  if not info then
+    info = {
+      _level = 1,
+      _error = nil,
+    }
+    coevas._info [co] = info
+  end
   info._error = err
 end
 
@@ -130,7 +137,14 @@ function Coevas.sleep (coevas, time)
     return
   end
   local co      = coevas._coroutine.running ()
-  local info    = coevas._info    [co]
+  local info    = coevas._info [co]
+  if not info then
+    info = {
+      _level = 1,
+      _error = nil,
+    }
+    coevas._info [co] = info
+  end
   local threads = coevas._threads [info._level]
   threads._ready   [co] = nil
   threads._waiting [co] = true
@@ -145,7 +159,14 @@ function Coevas.sleep (coevas, time)
 end
 
 function Coevas.wakeup (coevas, co)
-  local info    = coevas._info    [co]
+  local info    = coevas._info [co]
+  if not info then
+    info = {
+      _level = 1,
+      _error = nil,
+    }
+    coevas._info [co] = info
+  end
   local threads = coevas._threads [info._level]
   if threads == nil then
     threads = {
@@ -160,7 +181,14 @@ function Coevas.wakeup (coevas, co)
 end
 
 function Coevas.kill (coevas, co)
-  local info    = coevas._info    [co]
+  local info    = coevas._info [co]
+  if not info then
+    info = {
+      _level = 1,
+      _error = nil,
+    }
+    coevas._info [co] = info
+  end
   local threads = coevas._threads [info._level]
   local socket  = info._socket
   coevas._info     [co] = nil
