@@ -4,6 +4,11 @@ coroutine.make = require "coroutine.make"
 
 local Coevas = {}
 
+local Levels = {
+  Thread = 1,
+  Server = 2,
+}
+
 local Socket = {
   Tcp = {},
   Udp = {},
@@ -28,10 +33,10 @@ function Coevas.new ()
   local result = {
     autoclose    = true,
     compatibilty = false,
-    schedule     = Coevas.default_schedule,
     _coroutine   = coroutine.make (),
     _loop        = ev.Loop.new (),
     _idle        = nil,
+    _running     = nil,
     _info        = setmetatable ({}, { __mode = "k" }),
     _sockets     = setmetatable ({}, { __mode = "v" }),
     _threads     = {},
@@ -44,6 +49,12 @@ function Coevas.new ()
       loop:unloop ()
     end
   end)
+  for _, level in pairs (Levels) do
+    result._threads [level] = {
+      _ready   = {},
+      _waiting = {},
+    }
+  end
   return setmetatable (result, Coevas)
 end
 
@@ -59,15 +70,9 @@ end
 -- --------------
 
 function Coevas.setErrorHandler (coevas, err)
-  local co   = coevas._coroutine.running ()
-  local info = coevas._info [co]
-  if not info then
-    info = {
-      _level = 1,
-      _error = nil,
-    }
-    coevas._info [co] = info
-  end
+  local co    = coevas._coroutine.running ()
+  local info  = coevas._info [co]
+             or coevas._info [coevas._running]
   info._error = err
 end
 
@@ -86,7 +91,7 @@ function Coevas.addthread (coevas, f, ...)
     return f (unpack (args))
   end)
   coevas._info [co] = {
-    _level = 1,
+    _level = Levels.Thread,
     _error = nil,
   }
   coevas.wakeup (co)
@@ -97,7 +102,7 @@ function Coevas.addserver (coevas, socket, handler)
   local co = coevas._coroutine.create (function ()
     local socket = coevas.wrap (socket)
     while true do
-      local client, err = socket:accept ()
+      local client = socket:accept ()
       if client then
         client:settimeout (0)
         if not coevas.compatibility then
@@ -110,7 +115,7 @@ function Coevas.addserver (coevas, socket, handler)
   end)
   socket = coevas.raw (socket)
   coevas._info [co] = {
-    _level  = 2,
+    _level  = Levels.Server,
     _error  = nil,
     _socket = socket,
   }
@@ -138,13 +143,7 @@ function Coevas.sleep (coevas, time)
   end
   local co      = coevas._coroutine.running ()
   local info    = coevas._info [co]
-  if not info then
-    info = {
-      _level = 1,
-      _error = nil,
-    }
-    coevas._info [co] = info
-  end
+               or coevas._info [coevas._running]
   local threads = coevas._threads [info._level]
   threads._ready   [co] = nil
   threads._waiting [co] = true
@@ -160,13 +159,7 @@ end
 
 function Coevas.wakeup (coevas, co)
   local info    = coevas._info [co]
-  if not info then
-    info = {
-      _level = 1,
-      _error = nil,
-    }
-    coevas._info [co] = info
-  end
+               or coevas._info [coevas._running]
   local threads = coevas._threads [info._level]
   if threads == nil then
     threads = {
@@ -182,13 +175,7 @@ end
 
 function Coevas.kill (coevas, co)
   local info    = coevas._info [co]
-  if not info then
-    info = {
-      _level = 1,
-      _error = nil,
-    }
-    coevas._info [co] = info
-  end
+               or coevas._info [coevas._running]
   local threads = coevas._threads [info._level]
   local socket  = info._socket
   coevas._info     [co] = nil
@@ -199,14 +186,8 @@ function Coevas.kill (coevas, co)
   end
   if socket and coevas.autoclose then
     --socket:shutdown ()
-    socket:close    ()
+    socket:close ()
   end
-end
-
-math.randomseed (require "socket".gettime ())
-
-function Coevas.default_schedule (threads)
-  return next (threads, nil)
 end
 
 function Coevas.finished (coevas)
@@ -219,15 +200,22 @@ function Coevas.finished (coevas)
   return true
 end
 
+local max_level = 0
+for _, level in pairs (Levels) do
+  max_level = math.max (max_level, level)
+end
+
 function Coevas.step (coevas)
-  for i = 1, #coevas._threads do
+  for i = 1, max_level do
     local threads = coevas._threads [i]
-    if threads and next (threads._ready) then
-      local co     = coevas.schedule (threads._ready)
+    local ready   = next (threads._ready)
+    if ready then
+      local co     = ready
       local info   = coevas._info [co]
       local socket = info._socket
       if coevas._coroutine.status (co) ~= "dead" then
-        local ok, res = coevas._coroutine.resume (co)
+        coevas._running = ready
+        local ok, res   = coevas._coroutine.resume (co)
         if not ok then
           local handler = info._error or Coevas.defaultErrorHandler
           pcall (handler, res, co, socket)
