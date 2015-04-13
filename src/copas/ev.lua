@@ -70,9 +70,8 @@ end
 -- --------------
 
 function Coevas.setErrorHandler (coevas, err)
-  local co    = coevas._coroutine.running ()
+  local co    = coevas._running
   local info  = coevas._info [co]
-             or coevas._info [coevas._running]
   info._error = err
 end
 
@@ -141,9 +140,8 @@ function Coevas.sleep (coevas, time)
     coevas._coroutine.yield ()
     return
   end
-  local co      = coevas._coroutine.running ()
-  local info    = coevas._info [co]
-               or coevas._info [coevas._running]
+  local co   = coevas._running
+  local info = coevas._info [co]
   local threads = coevas._threads [info._level]
   threads._ready   [co] = nil
   threads._waiting [co] = true
@@ -159,15 +157,7 @@ end
 
 function Coevas.wakeup (coevas, co)
   local info    = coevas._info [co]
-               or coevas._info [coevas._running]
   local threads = coevas._threads [info._level]
-  if threads == nil then
-    threads = {
-      _ready   = {},
-      _waiting = {},
-    }
-    coevas._threads [info._level] = threads
-  end
   threads._ready   [co] = true
   threads._waiting [co] = nil
   coevas._idle:start (coevas._loop)
@@ -175,7 +165,6 @@ end
 
 function Coevas.kill (coevas, co)
   local info    = coevas._info [co]
-               or coevas._info [coevas._running]
   local threads = coevas._threads [info._level]
   local socket  = info._socket
   coevas._info     [co] = nil
@@ -208,13 +197,12 @@ end
 function Coevas.step (coevas)
   for i = 1, max_level do
     local threads = coevas._threads [i]
-    local ready   = next (threads._ready)
-    if ready then
-      local co     = ready
+    local co      = next (threads._ready)
+    if co then
       local info   = coevas._info [co]
       local socket = info._socket
       if coevas._coroutine.status (co) ~= "dead" then
-        coevas._running = ready
+        coevas._running = co
         local ok, res   = coevas._coroutine.resume (co)
         if not ok then
           local handler = info._error or Coevas.defaultErrorHandler
@@ -278,7 +266,7 @@ function Coevas.wrap (coevas, socket, sslparams)
 end
 
 function Coevas.timeout (coevas, socket)
-  local co      = coevas._coroutine.running ()
+  local co      = coevas._running
   local mt      = getmetatable (socket)
   local timeout = -math.huge
   if mt == Socket.Tcp.__metatable or mt == Socket.Udp.__metatable then
@@ -302,7 +290,7 @@ function Coevas.timeout (coevas, socket)
 end
 
 function Coevas.accept (coevas, skt)
-  local co             = coevas._coroutine.running ()
+  local co             = coevas._running
   local socket, signal = coevas.timeout (skt)
   repeat
     local client, err = socket:accept ()
@@ -322,7 +310,7 @@ function Coevas.accept (coevas, skt)
 end
 
 function Coevas.connect (coevas, skt, address, port)
-  local co             = coevas._coroutine.running ()
+  local co             = coevas._running
   local socket, signal = coevas.timeout (skt)
   local sslparams      = socket ~= skt and skt._ssl or nil
   repeat
@@ -378,7 +366,7 @@ function Coevas.setoption (coevas, skt, option, value)
 end
 
 function Coevas.receive (coevas, skt, pattern, part)
-  local co             = coevas._coroutine.running ()
+  local co             = coevas._running
   local socket, signal = coevas.timeout (skt)
   pattern = pattern or "*l"
   local s, err
@@ -405,7 +393,7 @@ end
 local UDP_DATAGRAM_MAX = 8192
 
 function Coevas.receivefrom (coevas, skt, size)
-  local co             = coevas._coroutine.running ()
+  local co             = coevas._running
   local socket, signal = coevas.timeout (skt)
   size = size or UDP_DATAGRAM_MAX
   repeat
@@ -429,7 +417,7 @@ function Coevas.receivefrom (coevas, skt, size)
 end
 
 function Coevas.send (coevas, skt, data, from, to)
-  local co             = coevas._coroutine.running ()
+  local co             = coevas._running
   local socket, signal = coevas.timeout (skt)
   from = from or 1
   local last = from-1
@@ -455,7 +443,7 @@ function Coevas.send (coevas, skt, data, from, to)
 end
 
 function Coevas.sendto (coevas, skt, data, ip, port)
-  local co             = coevas._coroutine.running ()
+  local co             = coevas._running
   local socket, signal = coevas.timeout (skt)
   repeat
     local s, err = socket:sendto (data, ip, port)
