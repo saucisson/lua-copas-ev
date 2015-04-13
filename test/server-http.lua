@@ -5,13 +5,13 @@ copev.compatibility = false
 
 local server = socket.bind ("127.0.0.1", 8080)
 --local profiler = require "profiler"
---profiler:start "data.ou"
+--profiler:start "data.out"
 
 local answer = [[
 HTTP/1.0 200 OK
 Server: Coevas
 Content-Type: text/plain
-Content-Length: 8
+Content-Length: 14
 
 Hello, World!
 ]]
