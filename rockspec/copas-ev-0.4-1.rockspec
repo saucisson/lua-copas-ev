@@ -16,7 +16,7 @@ dependencies = {
    "copas >= 2",
    "coronest >= 0",
    "lua >= 5.1",
-   "lua-ev >= scm-1",
+   "lua-ev = scm-1",
    "luasocket >= 2",
 }
 build = {
