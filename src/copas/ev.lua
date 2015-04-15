@@ -134,7 +134,7 @@ function Coevas.pass (coevas)
   coevas.sleep (0)
 end
 
-function Coevas.sleep (coevas, time)
+function Coevas.sleep (coevas, time, handler)
   time = time or 0
   if time == 0 then
     coevas._coroutine.yield ()
@@ -144,7 +144,7 @@ function Coevas.sleep (coevas, time)
   local info = coevas._info [co]
   local threads = coevas._threads [info._level]
   threads._ready   [co] = nil
-  threads._waiting [co] = true
+  threads._waiting [co] = handler or true
   if time >= 0 then
     local on_timeout = ev.Timer.new (function (loop, watcher)
       watcher:stop (loop)
@@ -167,6 +167,10 @@ function Coevas.kill (coevas, co)
   local info    = coevas._info [co]
   local threads = coevas._threads [info._level]
   local socket  = info._socket
+  local handler = threads._waiting [co]
+  if handler and handler ~= true then
+    handler:stop (coevas._loop)
+  end
   coevas._info     [co] = nil
   threads._ready   [co] = nil
   threads._waiting [co] = nil
@@ -204,6 +208,7 @@ function Coevas.step (coevas)
       if coevas._coroutine.status (co) ~= "dead" then
         coevas._running = co
         local ok, res   = coevas._coroutine.resume (co)
+        coevas._running = nil
         if not ok then
           local handler = info._error or Coevas.defaultErrorHandler
           pcall (handler, res, co, socket)
@@ -302,7 +307,7 @@ function Coevas.accept (coevas, skt)
         coevas.wakeup (co)
       end, socket:getfd (), ev.READ)
       on_read:start (coevas._loop)
-      coevas.sleep (-math.huge)
+      coevas.sleep (-math.huge, on_read)
     else
       return client, err
     end
@@ -323,7 +328,7 @@ function Coevas.connect (coevas, skt, address, port)
         coevas.wakeup (co)
       end, socket:getfd (), ev.WRITE)
       on_write:start (coevas._loop)
-      coevas.sleep (-math.huge)
+      coevas.sleep (-math.huge, on_write)
     elseif ok and sslparams then
       return coevas.dohandshake (socket, sslparams)
     else
@@ -383,7 +388,7 @@ function Coevas.receive (coevas, skt, pattern, part)
         coevas.wakeup (co)
       end, socket:getfd (), ev.READ)
       on_read:start (coevas._loop)
-      coevas.sleep (-math.huge)
+      coevas.sleep (-math.huge, on_read)
     else
       return s, err, part
     end
@@ -409,7 +414,7 @@ function Coevas.receivefrom (coevas, skt, size)
         coevas.wakeup (co)
       end, socket:getfd (), ev.READ)
       on_read:start (coevas._loop)
-      coevas.sleep (-math.huge)
+      coevas.sleep (-math.huge, on_read)
     else
       return s, err, port
     end
@@ -435,7 +440,7 @@ function Coevas.send (coevas, skt, data, from, to)
         coevas.wakeup (co)
       end, socket:getfd (), ev.WRITE)
       on_write:start (coevas._loop)
-      coevas.sleep (-math.huge)
+      coevas.sleep (-math.huge, on_write)
     else
       return s, err, last
     end
@@ -458,7 +463,7 @@ function Coevas.sendto (coevas, skt, data, ip, port)
         coevas.wakeup (co)
       end, socket:getfd (), ev.WRITE)
       on_write:start (coevas._loop)
-      coevas.sleep (-math.huge)
+      coevas.sleep (-math.huge, on_write)
     else
       return s, err
     end
