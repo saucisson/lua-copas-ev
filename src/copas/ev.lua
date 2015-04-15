@@ -157,6 +157,9 @@ end
 
 function Coevas.wakeup (coevas, co)
   local info    = coevas._info [co]
+  if not info then
+    return
+  end
   local threads = coevas._threads [info._level]
   threads._ready   [co] = true
   threads._waiting [co] = nil
