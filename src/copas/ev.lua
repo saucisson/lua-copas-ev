@@ -51,8 +51,9 @@ function Coevas.new ()
   end)
   for _, level in pairs (Levels) do
     result._threads [level] = {
-      _ready   = {},
-      _waiting = {},
+      _ready       = {},
+      _blocking    = {},
+      _nonblocking = {},
     }
   end
   return setmetatable (result, Coevas)
@@ -90,8 +91,9 @@ function Coevas.addthread (coevas, f, ...)
     return f (unpack (args))
   end)
   coevas._info [co] = {
-    _level = Levels.Thread,
-    _error = nil,
+    _level    = Levels.Thread,
+    _error    = nil,
+    _blocking = true,
   }
   coevas.wakeup (co)
   return co
@@ -114,9 +116,10 @@ function Coevas.addserver (coevas, socket, handler)
   end)
   socket = coevas.raw (socket)
   coevas._info [co] = {
-    _level  = Levels.Server,
-    _error  = nil,
-    _socket = socket,
+    _level    = Levels.Server,
+    _error    = nil,
+    _socket   = socket,
+    _blocking = true,
   }
   coevas._sockets [socket] = co
   coevas.wakeup (co)
@@ -134,17 +137,27 @@ function Coevas.pass (coevas)
   coevas.sleep (0)
 end
 
+function Coevas.blocking (coevas, value)
+  local co       = coevas._running
+  local info     = coevas._info [co]
+  info._blocking = value
+end
+
 function Coevas.sleep (coevas, time, handler)
   time = time or 0
   if time == 0 then
     coevas._coroutine.yield ()
     return
   end
-  local co   = coevas._running
-  local info = coevas._info [co]
+  local co      = coevas._running
+  local info    = coevas._info [co]
   local threads = coevas._threads [info._level]
   threads._ready   [co] = nil
-  threads._waiting [co] = handler or true
+  if info._blocking then
+    threads._blocking    [co] = handler or true
+  else
+    threads._nonblocking [co] = handler or true
+  end
   if time >= 0 then
     local on_timeout = ev.Timer.new (function (loop, watcher)
       watcher:stop (loop)
@@ -161,8 +174,9 @@ function Coevas.wakeup (coevas, co)
     return
   end
   local threads = coevas._threads [info._level]
-  threads._ready   [co] = true
-  threads._waiting [co] = nil
+  threads._ready       [co] = true
+  threads._blocking    [co] = nil
+  threads._nonblocking [co] = nil
   coevas._idle:start (coevas._loop)
 end
 
@@ -170,13 +184,19 @@ function Coevas.kill (coevas, co)
   local info    = coevas._info [co]
   local threads = coevas._threads [info._level]
   local socket  = info._socket
-  local handler = threads._waiting [co]
+  local handler
+  if info._blocking then
+    handler = threads._blocking    [co]
+  else
+    handler = threads._nonblocking [co]
+  end
   if handler and handler ~= true then
     handler:stop (coevas._loop)
   end
-  coevas._info     [co] = nil
-  threads._ready   [co] = nil
-  threads._waiting [co] = nil
+  coevas._info         [co] = nil
+  threads._ready       [co] = nil
+  threads._blocking    [co] = nil
+  threads._nonblocking [co] = nil
   if socket then
     coevas._sockets [socket] = nil
   end
@@ -189,7 +209,7 @@ end
 function Coevas.finished (coevas)
   for i = 1, #coevas._threads do
     local threads = coevas._threads [i]
-    if threads and (next (threads._ready) or next (threads._waiting)) then
+    if threads and (next (threads._ready) or next (threads._blocking)) then
       return false
     end
   end
@@ -233,6 +253,21 @@ end
 
 -- Socket Operations
 -- -----------------
+
+function Coevas.tcp (coevas)
+  local socket = require "socket"
+  return Coevas.wrap (coevas, socket.tcp ())
+end
+
+function Coevas.udp (coevas)
+  local socket = require "socket"
+  return Coevas.wrap (coevas, socket.udp ())
+end
+
+function Coevas.bind (coevas, socket, address, port)
+  local raw = Coevas.raw (coevas, socket)
+  return raw:bind (address, port)
+end
 
 function Coevas.raw (coevas, socket)
   local mt = getmetatable (socket)
@@ -477,6 +512,9 @@ end
 -- --------------
 
 Socket.Tcp.__index = {
+  bind   = function (self, address, port)
+    return Coevas.bind (self._coevas, self, address, port)
+  end,
   accept = function (self)
     return Coevas.accept (self._coevas, self)
   end,
