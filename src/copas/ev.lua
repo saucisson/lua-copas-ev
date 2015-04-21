@@ -285,6 +285,7 @@ function Coevas.wrap (coevas, socket, sslparams)
     assert (socket._coevas == coevas)
     return socket
   else
+    socket:settimeout (0)
     local prefix = string.sub (tostring (socket), 1, 3)
     if     prefix == "udp" then
       return setmetatable ({
@@ -360,7 +361,7 @@ function Coevas.connect (coevas, skt, address, port)
     local ok, err = socket:connect (address, port)
     if signal.timeout then
       return nil, err
-    elseif err == "timeout" then
+    elseif err == "timeout" or err == "Operation already in progress" then
       local on_write = ev.IO.new (function (loop, watcher)
         watcher:stop (loop)
         coevas.wakeup (co)
