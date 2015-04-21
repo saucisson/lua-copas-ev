@@ -169,7 +169,7 @@ function Coevas.sleep (coevas, time, handler)
 end
 
 function Coevas.wakeup (coevas, co)
-  local info    = coevas._info [co]
+  local info = coevas._info [co]
   if not info then
     return
   end
