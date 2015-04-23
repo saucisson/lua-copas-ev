@@ -4,11 +4,6 @@ coroutine.make = require "coroutine.make"
 
 local Coevas = {}
 
-local Levels = {
-  Thread = 1,
-  Server = 2,
-}
-
 local Socket = {
   Tcp = {},
   Udp = {},
@@ -39,7 +34,16 @@ function Coevas.new ()
     _running     = nil,
     _info        = setmetatable ({}, { __mode = "k" }),
     _sockets     = setmetatable ({}, { __mode = "v" }),
-    _threads     = {},
+    _threads     = setmetatable ({}, {
+      __index = function (self, n)
+        self [n] = {
+          _ready       = {},
+          _blocking    = {},
+          _nonblocking = {},
+        }
+        return self [n]
+      end,
+    }),
   }
   result._idle = ev.Idle.new (function (loop, idle)
     if not result.step () then
@@ -49,13 +53,6 @@ function Coevas.new ()
       loop:unloop ()
     end
   end)
-  for _, level in pairs (Levels) do
-    result._threads [level] = {
-      _ready       = {},
-      _blocking    = {},
-      _nonblocking = {},
-    }
-  end
   return setmetatable (result, Coevas)
 end
 
@@ -91,7 +88,7 @@ function Coevas.addthread (coevas, f, ...)
     return f (unpack (args))
   end)
   coevas._info [co] = {
-    _level    = Levels.Thread,
+    _level    = 1,
     _error    = nil,
     _blocking = true,
   }
@@ -116,7 +113,7 @@ function Coevas.addserver (coevas, socket, handler)
   end)
   socket = coevas.raw (socket)
   coevas._info [co] = {
-    _level    = Levels.Server,
+    _level    = 0,
     _error    = nil,
     _socket   = socket,
     _blocking = true,
@@ -182,6 +179,9 @@ end
 
 function Coevas.kill (coevas, co)
   local info    = coevas._info [co]
+  if not info then
+    return
+  end
   local threads = coevas._threads [info._level]
   local socket  = info._socket
   local handler
@@ -207,7 +207,7 @@ function Coevas.kill (coevas, co)
 end
 
 function Coevas.finished (coevas)
-  for i = 1, #coevas._threads do
+  for i = 0, #coevas._threads do
     local threads = coevas._threads [i]
     if threads and (next (threads._ready) or next (threads._blocking)) then
       return false
@@ -216,13 +216,11 @@ function Coevas.finished (coevas)
   return true
 end
 
-local max_level = 0
-for _, level in pairs (Levels) do
-  max_level = math.max (max_level, level)
-end
-
 function Coevas.step (coevas)
-  for i = 1, max_level do
+  for i = 1, #coevas._threads+1 do
+    if i == #coevas._threads+1 then
+      i = 0 -- for servers
+    end
     local threads = coevas._threads [i]
     local co      = next (threads._ready)
     if co then
@@ -243,6 +241,7 @@ function Coevas.step (coevas)
       return true
     end
   end
+  
   return false
 end
 
