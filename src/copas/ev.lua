@@ -1,7 +1,6 @@
                  require "copas" -- fix socket/copas interactions
 local ev       = require "ev"
 coroutine.make = require "coroutine.make"
-local socket   = require "socket"
 
 local Coevas = {}
 
@@ -14,10 +13,12 @@ function Coevas.new ()
   local result = {
     autoclose    = true,
     compatibilty = false,
+    clean_awaken = 500,
     _coroutine   = coroutine.make (),
     _loop        = ev.Loop.new (),
     _idle        = nil,
     _running     = nil,
+    _ratio       = 95,
     _info        = setmetatable ({}, { __mode = "k" }),
     _sockets     = setmetatable ({}, { __mode = "v" }),
     _threads     = setmetatable ({}, {
@@ -26,6 +27,9 @@ function Coevas.new ()
           _ready       = {},
           _blocking    = {},
           _nonblocking = {},
+          _awaken      = {
+            clean = 0,
+          },
         }
         return self [n]
       end,
@@ -138,6 +142,7 @@ function Coevas.wakeup (coevas, co)
     return
   end
   local threads = coevas._threads [info._level]
+  threads._awaken [#threads._awaken+1] = co
   threads._ready       [co] = true
   threads._blocking    [co] = nil
   threads._nonblocking [co] = nil
@@ -146,13 +151,14 @@ end
 
 function Coevas.sleep (coevas, time, handler)
   time = time or 0
-  if time == 0 then
-    coevas._coroutine.yield ()
-    return
-  end
   local co      = coevas._running
   local info    = coevas._info [co]
   local threads = coevas._threads [info._level]
+  if time == 0 then
+    threads._awaken [#threads._awaken+1] = co
+    coevas._coroutine.yield ()
+    return
+  end
   threads._ready [co] = nil
   if info._blocking then
     threads._blocking    [co] = handler or true
@@ -214,15 +220,35 @@ function Coevas.step (coevas)
       i = 0 -- for servers
     end
     local threads = coevas._threads [i]
-    local co      = next (threads._ready)
+    if threads._awaken.clean == coevas.clean_awaken then
+      threads._awaken.clean = 0
+      for j = 1, #threads._awaken do
+        if not threads._awaken [j] then
+          threads._awaken [j] = nil
+        elseif j > #threads._awaken+1 then
+          threads._awaken [#threads._awaken+1] = threads._awaken [j]
+          threads._awaken [j] = nil
+        end
+      end
+    end
+    local co
+    for j = 1, #threads._awaken do
+      co = threads._awaken [j]
+      if co then
+        assert (threads._ready [co])
+        threads._awaken [j] = false
+        threads._awaken.clean = threads._awaken.clean+1
+        break
+      end
+    end
     if co then
-      local info   = coevas._info [co]
-      local socket = info._socket
       if coevas._coroutine.status (co) ~= "dead" then
         coevas._running = co
         local ok, res   = coevas._coroutine.resume (co)
         coevas._running = nil
         if not ok then
+          local info   = coevas._info [co]
+          local socket = info._socket
           local handler = info._error or Coevas.defaultErrorHandler
           pcall (handler, res, co, socket)
         end
@@ -327,6 +353,9 @@ function Coevas.accept (coevas, skt)
   local socket = coevas.raw (skt)
   repeat
     local client, err = socket:accept ()
+    if math.random (100) > coevas._ratio then
+      coevas.pass ()
+    end
     if signal.timeout then
       return nil, err
     elseif err == "timeout" or err == "wantread" then
@@ -345,7 +374,6 @@ end
 function Coevas.connect (coevas, skt, address, port)
   local co        = coevas._running
   local signal    = coevas.timeout (skt)
-  local wrapped   = coevas.wrap (skt)
   local socket    = coevas.raw (skt)
   local sslparams = socket ~= skt and skt._ssl or nil
   repeat
@@ -410,7 +438,7 @@ function Coevas.receive (coevas, skt, pattern, part)
   local s, err
   repeat
     s, err, part = socket:receive (pattern, part)
-    if math.random (100) > 90 then
+    if math.random (100) > coevas._ratio then
       coevas.pass ()
     end
     if signal.timeout then
@@ -437,7 +465,7 @@ function Coevas.receivefrom (coevas, skt, size)
   size = size or UDP_DATAGRAM_MAX
   repeat
     local s, err, port = socket:receivefrom (size)
-    if math.random (100) > 90 then
+    if math.random (100) > coevas._ratio then
       coevas.pass ()
     end
     if signal.timeout then
@@ -464,7 +492,7 @@ function Coevas.send (coevas, skt, data, from, to)
   repeat
     local s, err
     s, err, last = socket:send (data, last+1, to)
-    if math.random (100) > 90 then
+    if math.random (100) > coevas._ratio then
       coevas.pass ()
     end
     if signal.timeout then
@@ -488,7 +516,7 @@ function Coevas.sendto (coevas, skt, data, ip, port)
   local socket = coevas.raw (skt)
   repeat
     local s, err = socket:sendto (data, ip, port)
-    if math.random (100) > 90 then
+    if math.random (100) > coevas._ratio then
       coevas.pass ()
     end
     if signal.timeout then
