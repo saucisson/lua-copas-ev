@@ -14,11 +14,11 @@ function Coevas.new ()
     autoclose    = true,
     compatibilty = false,
     clean_awaken = 500,
+    ratio        = 95,
     _coroutine   = coroutine.make (),
     _loop        = ev.Loop.new (),
     _idle        = nil,
     _running     = nil,
-    _ratio       = 95,
     _info        = setmetatable ({}, { __mode = "k" }),
     _sockets     = setmetatable ({}, { __mode = "v" }),
     _threads     = setmetatable ({}, {
@@ -234,11 +234,12 @@ function Coevas.step (coevas)
     local co
     for j = 1, #threads._awaken do
       co = threads._awaken [j]
-      if co then
-        assert (threads._ready [co])
-        threads._awaken [j] = false
+      if co and threads._ready [co] then
+        threads._awaken [j]   = false
         threads._awaken.clean = threads._awaken.clean+1
         break
+      else
+        co = nil
       end
     end
     if co then
@@ -353,7 +354,7 @@ function Coevas.accept (coevas, skt)
   local socket = coevas.raw (skt)
   repeat
     local client, err = socket:accept ()
-    if math.random (100) > coevas._ratio then
+    if math.random (100) > coevas.ratio then
       coevas.pass ()
     end
     if signal.timeout then
@@ -438,7 +439,7 @@ function Coevas.receive (coevas, skt, pattern, part)
   local s, err
   repeat
     s, err, part = socket:receive (pattern, part)
-    if math.random (100) > coevas._ratio then
+    if math.random (100) > coevas.ratio then
       coevas.pass ()
     end
     if signal.timeout then
@@ -465,7 +466,7 @@ function Coevas.receivefrom (coevas, skt, size)
   size = size or UDP_DATAGRAM_MAX
   repeat
     local s, err, port = socket:receivefrom (size)
-    if math.random (100) > coevas._ratio then
+    if math.random (100) > coevas.ratio then
       coevas.pass ()
     end
     if signal.timeout then
@@ -492,7 +493,7 @@ function Coevas.send (coevas, skt, data, from, to)
   repeat
     local s, err
     s, err, last = socket:send (data, last+1, to)
-    if math.random (100) > coevas._ratio then
+    if math.random (100) > coevas.ratio then
       coevas.pass ()
     end
     if signal.timeout then
@@ -516,7 +517,7 @@ function Coevas.sendto (coevas, skt, data, ip, port)
   local socket = coevas.raw (skt)
   repeat
     local s, err = socket:sendto (data, ip, port)
-    if math.random (100) > coevas._ratio then
+    if math.random (100) > coevas.ratio then
       coevas.pass ()
     end
     if signal.timeout then
