@@ -1,6 +1,7 @@
-                 require "copas"
+                 require "copas" -- fix socket/copas interactions
 local ev       = require "ev"
 coroutine.make = require "coroutine.make"
+local socket   = require "socket"
 
 local Coevas = {}
 
@@ -8,21 +9,6 @@ local Socket = {
   Tcp = {},
   Udp = {},
 }
-
-function Coevas.__index (coevas, key)
-  local found = Coevas [key]
-  if not found then
-    return nil
-  end
-  local result = found
-  if type (found) == "function" then
-    result = function (...)
-      return found (coevas, ...)
-    end
-  end
-  coevas [key] = result
-  return result
-end
 
 function Coevas.new ()
   local result = {
@@ -53,6 +39,13 @@ function Coevas.new ()
       loop:unloop ()
     end
   end)
+  for k, f in pairs (Coevas) do
+    if type (f) == "function" then
+      result [k] = function (...)
+        return f (result, ...)
+      end
+    end
+  end
   return setmetatable (result, Coevas)
 end
 
@@ -84,7 +77,7 @@ local unpack = table.unpack or unpack
 
 function Coevas.addthread (coevas, f, ...)
   local args = { ... }
-  local co = coevas._coroutine.create (function ()
+  local co   = coevas._coroutine.create (function ()
     return f (unpack (args))
   end)
   coevas._info [co] = {
@@ -96,13 +89,12 @@ function Coevas.addthread (coevas, f, ...)
   return co
 end
 
-function Coevas.addserver (coevas, socket, handler)
+function Coevas.addserver (coevas, skt, handler)
   local co = coevas._coroutine.create (function ()
-    local socket = coevas.wrap (socket)
+    local socket = coevas.wrap (skt)
     while true do
       local client = socket:accept ()
       if client then
-        client:settimeout (0)
         if not coevas.compatibility then
           client = coevas.wrap (client)
         end
@@ -111,11 +103,12 @@ function Coevas.addserver (coevas, socket, handler)
       end
     end
   end)
-  socket = coevas.raw (socket)
+  local wrapped = coevas.wrap (skt)
+  local socket  = coevas.raw  (skt)
   coevas._info [co] = {
     _level    = 0,
     _error    = nil,
-    _socket   = socket,
+    _socket   = wrapped,
     _blocking = true,
   }
   coevas._sockets [socket] = co
@@ -123,11 +116,10 @@ function Coevas.addserver (coevas, socket, handler)
   return co
 end
 
-function Coevas.removeserver (coevas, socket)
-  socket   = coevas.raw (socket)
-  local co = coevas._sockets [socket]
-  coevas.kill (co)
-  return socket:close() 
+function Coevas.removeserver (coevas, skt)
+  local socket = coevas.raw (skt)
+  local co     = coevas._sockets [socket]
+  return coevas.kill (co)
 end
 
 function Coevas.pass (coevas)
@@ -140,6 +132,18 @@ function Coevas.blocking (coevas, value)
   info._blocking = value
 end
 
+function Coevas.wakeup (coevas, co)
+  local info = coevas._info [co]
+  if not info then
+    return
+  end
+  local threads = coevas._threads [info._level]
+  threads._ready       [co] = true
+  threads._blocking    [co] = nil
+  threads._nonblocking [co] = nil
+  coevas._idle:start (coevas._loop)
+end
+
 function Coevas.sleep (coevas, time, handler)
   time = time or 0
   if time == 0 then
@@ -149,7 +153,7 @@ function Coevas.sleep (coevas, time, handler)
   local co      = coevas._running
   local info    = coevas._info [co]
   local threads = coevas._threads [info._level]
-  threads._ready   [co] = nil
+  threads._ready [co] = nil
   if info._blocking then
     threads._blocking    [co] = handler or true
   else
@@ -163,18 +167,6 @@ function Coevas.sleep (coevas, time, handler)
     on_timeout:start (coevas._loop)
   end
   coevas._coroutine.yield ()
-end
-
-function Coevas.wakeup (coevas, co)
-  local info = coevas._info [co]
-  if not info then
-    return
-  end
-  local threads = coevas._threads [info._level]
-  threads._ready       [co] = true
-  threads._blocking    [co] = nil
-  threads._nonblocking [co] = nil
-  coevas._idle:start (coevas._loop)
 end
 
 function Coevas.kill (coevas, co)
@@ -198,11 +190,11 @@ function Coevas.kill (coevas, co)
   threads._blocking    [co] = nil
   threads._nonblocking [co] = nil
   if socket then
-    coevas._sockets [socket] = nil
-  end
-  if socket and coevas.autoclose then
-    --socket:shutdown ()
-    socket:close ()
+    local raw = coevas.raw (socket)
+    coevas._sockets [raw] = nil
+    if coevas.autoclose then
+      socket:close ()
+    end
   end
 end
 
@@ -253,6 +245,7 @@ end
 -- Socket Operations
 -- -----------------
 
+--[==[
 function Coevas.tcp (coevas)
   local socket = require "socket"
   return Coevas.wrap (coevas, socket.tcp ())
@@ -267,16 +260,7 @@ function Coevas.bind (coevas, socket, address, port)
   local raw = Coevas.raw (coevas, socket)
   return raw:bind (address, port)
 end
-
-function Coevas.raw (coevas, socket)
-  local mt = getmetatable (socket)
-  if mt == Socket.Tcp.__metatable or mt == Socket.Udp.__metatable then
-    assert (socket._coevas == coevas)
-    return socket._socket
-  else
-    return socket
-  end
-end
+--]==]
 
 function Coevas.wrap (coevas, socket, sslparams)
   local mt = getmetatable (socket)
@@ -308,33 +292,39 @@ function Coevas.wrap (coevas, socket, sslparams)
   end
 end
 
-function Coevas.timeout (coevas, socket)
-  local co      = coevas._running
-  local mt      = getmetatable (socket)
-  local timeout = -math.huge
+function Coevas.raw (coevas, socket)
+  local mt = getmetatable (socket)
   if mt == Socket.Tcp.__metatable or mt == Socket.Udp.__metatable then
     assert (socket._coevas == coevas)
-    timeout = socket._timeout or timeout
+    return socket._socket
+  else
+    return socket
   end
+end
+
+function Coevas.timeout (coevas, skt)
+  local co      = coevas._running
+  local wrapped = coevas.wrap (skt)
+  local timeout = -math.huge
+  timeout = wrapped._timeout or timeout
   local result = {
     timeout = timeout == 0,
   }
   if timeout > 0 then
     local on_timeout = ev.Timer.new (function (loop, watcher)
       watcher:stop (loop)
-      coevas.wakeup (co)
       result.timeout = true
+      coevas.wakeup (co)
     end, timeout)
     on_timeout:start (coevas._loop)
   end
-  socket = coevas.raw (socket)
-  socket:settimeout (0)
-  return socket, result
+  return result
 end
 
 function Coevas.accept (coevas, skt)
-  local co             = coevas._running
-  local socket, signal = coevas.timeout (skt)
+  local co     = coevas._running
+  local signal = coevas.timeout (skt)
+  local socket = coevas.raw (skt)
   repeat
     local client, err = socket:accept ()
     if signal.timeout then
@@ -353,9 +343,11 @@ function Coevas.accept (coevas, skt)
 end
 
 function Coevas.connect (coevas, skt, address, port)
-  local co             = coevas._running
-  local socket, signal = coevas.timeout (skt)
-  local sslparams      = socket ~= skt and skt._ssl or nil
+  local co        = coevas._running
+  local signal    = coevas.timeout (skt)
+  local wrapped   = coevas.wrap (skt)
+  local socket    = coevas.raw (skt)
+  local sslparams = socket ~= skt and skt._ssl or nil
   repeat
     local ok, err = socket:connect (address, port)
     if signal.timeout then
@@ -368,17 +360,17 @@ function Coevas.connect (coevas, skt, address, port)
       on_write:start (coevas._loop)
       coevas.sleep (-math.huge, on_write)
     elseif ok and sslparams then
-      return coevas.dohandshake (socket, sslparams)
+      return coevas.dohandshake (skt, sslparams)
     else
       return ok, err
     end
   until false
 end
 
-function Coevas.dohandshake (coevas, socket, sslparams)
+function Coevas.dohandshake (coevas, skt, sslparams)
   local ssl = require "ssl"
   local ok, err
-  socket      = coevas.wrap (socket)
+  local socket = coevas.wrap (coevas.raw (skt))
   socket, err = ssl.wrap (socket, sslparams)
   if not socket then
     error (err)
@@ -387,7 +379,9 @@ function Coevas.dohandshake (coevas, socket, sslparams)
   if not ok then
     error (err)
   end
-  return socket
+  local result = coevas.wrap (skt)
+  result._socket = socket
+  return result
 end
 
 function Coevas.handler (coevas, connhandler, sslparams)
@@ -409,8 +403,9 @@ function Coevas.setoption (coevas, skt, option, value)
 end
 
 function Coevas.receive (coevas, skt, pattern, part)
-  local co             = coevas._running
-  local socket, signal = coevas.timeout (skt)
+  local co     = coevas._running
+  local signal = coevas.timeout (skt)
+  local socket = coevas.raw (skt)
   pattern = pattern or "*l"
   local s, err
   repeat
@@ -436,8 +431,9 @@ end
 local UDP_DATAGRAM_MAX = 8192
 
 function Coevas.receivefrom (coevas, skt, size)
-  local co             = coevas._running
-  local socket, signal = coevas.timeout (skt)
+  local co     = coevas._running
+  local signal = coevas.timeout (skt)
+  local socket = coevas.raw (skt)
   size = size or UDP_DATAGRAM_MAX
   repeat
     local s, err, port = socket:receivefrom (size)
@@ -460,8 +456,9 @@ function Coevas.receivefrom (coevas, skt, size)
 end
 
 function Coevas.send (coevas, skt, data, from, to)
-  local co             = coevas._running
-  local socket, signal = coevas.timeout (skt)
+  local co     = coevas._running
+  local signal = coevas.timeout (skt)
+  local socket = coevas.raw (skt)
   from = from or 1
   local last = from-1
   repeat
@@ -486,8 +483,9 @@ function Coevas.send (coevas, skt, data, from, to)
 end
 
 function Coevas.sendto (coevas, skt, data, ip, port)
-  local co             = coevas._running
-  local socket, signal = coevas.timeout (skt)
+  local co     = coevas._running
+  local signal = coevas.timeout (skt)
+  local socket = coevas.raw (skt)
   repeat
     local s, err = socket:sendto (data, ip, port)
     if math.random (100) > 90 then
@@ -536,14 +534,15 @@ Socket.Tcp.__index = {
   send = function (self, data, from, to)
     return Coevas.send (self._coevas, self, data, from, to)
   end,
-  receive = function (self, pattern)
-    return Coevas.receive (self._coevas, self, pattern)
+  receive = function (self, pattern, prefix)
+    return Coevas.receive (self._coevas, self, pattern, prefix)
   end,
   flush = function (self)
     return Coevas.flush (self._coevas, self)
   end,
   settimeout = function (self, time)
     self._timeout = time
+    return true
   end,
   setoption = function (self, option, value)
     return Coevas.setoption (self._coevas, self, option, value)
@@ -590,6 +589,7 @@ Socket.Udp.__index = {
   end,
   settimeout = function (self, time)
     self._timeout = time
+    return true
   end,
   setoption = function (self, option, value)
     return Coevas.setoption (self._coevas, self, option, value)
