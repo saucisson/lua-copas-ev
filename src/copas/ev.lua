@@ -1,6 +1,6 @@
                  require "copas" -- fix socket/copas interactions
 local ev       = require "ev"
-coroutine.make = require "coroutine.make"
+local coromake = require "coroutine.make"
 
 local Coevas = {}
 
@@ -15,7 +15,7 @@ function Coevas.new ()
     compatibilty = false,
     clean_awaken = 500,
     ratio        = 95,
-    _coroutine   = coroutine.make (),
+    _coroutine   = coromake (),
     _loop        = ev.Loop.new (),
     _idle        = nil,
     _running     = nil,
@@ -338,12 +338,12 @@ function Coevas.timeout (coevas, skt)
     timeout = timeout == 0,
   }
   if timeout > 0 then
-    local on_timeout = ev.Timer.new (function (loop, watcher)
+    result.on_timeout = ev.Timer.new (function (loop, watcher)
       watcher:stop (loop)
       result.timeout = true
       coevas.wakeup (co)
     end, timeout)
-    on_timeout:start (coevas._loop)
+    result.on_timeout:start (coevas._loop)
   end
   return result
 end
@@ -367,6 +367,9 @@ function Coevas.accept (coevas, skt)
       on_read:start (coevas._loop)
       coevas.sleep (-math.huge, on_read)
     else
+      if signal.on_timeout then
+        signal.on_timeout:stop (coevas._loop)
+      end
       return client, err
     end
   until false
@@ -389,8 +392,14 @@ function Coevas.connect (coevas, skt, address, port)
       on_write:start (coevas._loop)
       coevas.sleep (-math.huge, on_write)
     elseif ok and sslparams then
+      if signal.on_timeout then
+        signal.on_timeout:stop (coevas._loop)
+      end
       return coevas.dohandshake (skt, sslparams)
     else
+      if signal.on_timeout then
+        signal.on_timeout:stop (coevas._loop)
+      end
       return ok, err
     end
   until false
@@ -452,6 +461,9 @@ function Coevas.receive (coevas, skt, pattern, part)
       on_read:start (coevas._loop)
       coevas.sleep (-math.huge, on_read)
     else
+      if signal.on_timeout then
+        signal.on_timeout:stop (coevas._loop)
+      end
       return s, err, part
     end
   until false
@@ -479,6 +491,9 @@ function Coevas.receivefrom (coevas, skt, size)
       on_read:start (coevas._loop)
       coevas.sleep (-math.huge, on_read)
     else
+      if signal.on_timeout then
+        signal.on_timeout:stop (coevas._loop)
+      end
       return s, err, port
     end
   until false
@@ -506,6 +521,9 @@ function Coevas.send (coevas, skt, data, from, to)
       on_write:start (coevas._loop)
       coevas.sleep (-math.huge, on_write)
     else
+      if signal.on_timeout then
+        signal.on_timeout:stop (coevas._loop)
+      end
       return s, err, last
     end
   until false
@@ -530,6 +548,9 @@ function Coevas.sendto (coevas, skt, data, ip, port)
       on_write:start (coevas._loop)
       coevas.sleep (-math.huge, on_write)
     else
+      if signal.on_timeout then
+        signal.on_timeout:stop (coevas._loop)
+      end
       return s, err
     end
   until false
