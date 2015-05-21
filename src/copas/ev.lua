@@ -5,8 +5,9 @@ local coromake = require "coroutine.make"
 local Coevas = {}
 
 local Socket = {
-  Tcp = {},
-  Udp = {},
+  Tcp  = {},
+  Udp  = {},
+  Unix = {},
 }
 
 function Coevas.new ()
@@ -290,38 +291,43 @@ end
 --]==]
 
 function Coevas.wrap (coevas, socket, sslparams)
-  local mt = getmetatable (socket)
-  if mt == Socket.Tcp.__metatable or mt == Socket.Udp.__metatable then
-    assert (socket._coevas == coevas)
+  if coevas.raw (socket) ~= socket then
     return socket
-  else
-    socket:settimeout (0)
-    local prefix = string.sub (tostring (socket), 1, 3)
-    if     prefix == "udp" then
-      return setmetatable ({
-        _coevas = coevas,
-        _socket = socket,
-        _ssl    = sslparams,
-      }, Socket.Udp)
-    elseif prefix == "tcp" then
-      return setmetatable ({
-        _coevas = coevas,
-        _socket = socket,
-        _ssl    = sslparams,
-      }, Socket.Tcp)
-    elseif prefix == "SSL" then
-      return setmetatable ({
-        _coevas = coevas,
-        _socket = socket,
-        _ssl    = sslparams,
-      }, Socket.Tcp)
-    end
+  end
+  socket:settimeout (0)
+  local prefix = string.sub (tostring (socket), 1, 3)
+  if     prefix == "uni" then
+    return setmetatable ({
+      _coevas = coevas,
+      _socket = socket,
+      _ssl    = sslparams,
+    }, Socket.Unix)
+  elseif prefix == "udp" then
+    return setmetatable ({
+      _coevas = coevas,
+      _socket = socket,
+      _ssl    = sslparams,
+    }, Socket.Udp)
+  elseif prefix == "tcp" then
+    return setmetatable ({
+      _coevas = coevas,
+      _socket = socket,
+      _ssl    = sslparams,
+    }, Socket.Tcp)
+  elseif prefix == "SSL" then
+    return setmetatable ({
+      _coevas = coevas,
+      _socket = socket,
+      _ssl    = sslparams,
+    }, Socket.Tcp)
   end
 end
 
 function Coevas.raw (coevas, socket)
   local mt = getmetatable (socket)
-  if mt == Socket.Tcp.__metatable or mt == Socket.Udp.__metatable then
+  if mt == Socket.Tcp .__metatable
+  or mt == Socket.Udp .__metatable
+  or mt == Socket.Unix.__metatable then
     assert (socket._coevas == coevas)
     return socket._socket
   else
@@ -349,9 +355,13 @@ function Coevas.timeout (coevas, skt)
 end
 
 function Coevas.accept (coevas, skt)
-  local co     = coevas._running
-  local signal = coevas.timeout (skt)
-  local socket = coevas.raw (skt)
+  local co      = coevas._running
+  local signal  = coevas.timeout (skt)
+  local socket  = coevas.raw (skt)
+  local ok, err = socket:listen ()
+  if not ok then
+    return nil, err
+  end
   repeat
     local client, err = socket:accept ()
     if math.random (100) > coevas.ratio then
@@ -652,6 +662,53 @@ Socket.Udp.__tostring = function (self)
   return tostring (self._socket)
 end
 Socket.Udp.__metatable = "copas-ev-udp"
+
+Socket.Unix.__index = {
+  bind   = function (self, address, port)
+    return Coevas.bind (self._coevas, self, address, port)
+  end,
+  accept = function (self)
+    return Coevas.accept (self._coevas, self)
+  end,
+  connect = function (self, address, port)
+    return Coevas.connect (self._coevas, self, address, port)
+  end,
+  close = function (self)
+    return self._socket:close ()
+  end,
+  shutdown = function (self)
+    return self._socket:shutdown ()
+  end,
+  getfd = function (self)
+    return self._socket:getfd ()
+  end,
+  setfd = function (self, fd)
+    return self._socket:setfd (fd)
+  end,
+  send = function (self, data, from, to)
+    return Coevas.send (self._coevas, self, data, from, to)
+  end,
+  receive = function (self, pattern, prefix)
+    return Coevas.receive (self._coevas, self, pattern, prefix)
+  end,
+  flush = function (self)
+    return Coevas.flush (self._coevas, self)
+  end,
+  settimeout = function (self, time)
+    self._timeout = time
+    return true
+  end,
+  setoption = function (self, option, value)
+    return Coevas.setoption (self._coevas, self, option, value)
+  end,
+  dohandshake = function (self, parameters)
+    return Coevas.dohandshake (self._coevas, self, parameters)
+  end,
+}
+Socket.Unix.__tostring = function (self)
+  return tostring (self._socket)
+end
+Socket.Unix.__metatable = "copas-ev-unix"
 
 -- Module
 -- ------
