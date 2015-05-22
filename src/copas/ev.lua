@@ -358,9 +358,11 @@ function Coevas.accept (coevas, skt)
   local co      = coevas._running
   local signal  = coevas.timeout (skt)
   local socket  = coevas.raw (skt)
-  local ok, err = socket:listen ()
-  if not ok then
-    return nil, err
+  if tostring (socket):sub (1, 3) == "uni" then
+    local ok, err = socket:listen ()
+    if not ok then
+      return nil, err
+    end
   end
   repeat
     local client, err = socket:accept ()
