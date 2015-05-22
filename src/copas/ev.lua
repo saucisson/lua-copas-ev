@@ -358,12 +358,6 @@ function Coevas.accept (coevas, skt)
   local co      = coevas._running
   local signal  = coevas.timeout (skt)
   local socket  = coevas.raw (skt)
-  if tostring (socket):sub (1, 3) == "uni" then
-    local ok, err = socket:listen ()
-    if not ok then
-      return nil, err
-    end
-  end
   repeat
     local client, err = socket:accept ()
     if math.random (100) > coevas.ratio then
@@ -372,12 +366,17 @@ function Coevas.accept (coevas, skt)
     if signal.timeout then
       return nil, err
     elseif err == "timeout" or err == "wantread" then
-      local on_read = ev.IO.new (function (loop, watcher)
-        watcher:stop (loop)
-        coevas.wakeup (co)
-      end, socket:getfd (), ev.READ)
-      on_read:start (coevas._loop)
-      coevas.sleep (-math.huge, on_read)
+      if tostring (socket):sub (1, 3) == "uni" then
+        coevas.sleep (1, on_read)
+      else
+        local on_read = ev.IO.new (function (loop, watcher)
+          print "here"
+          watcher:stop (loop)
+          coevas.wakeup (co)
+        end, socket:getfd (), ev.READ)
+        on_read:start (coevas._loop)
+        coevas.sleep (-math.huge, on_read)
+      end
     else
       if signal.on_timeout then
         signal.on_timeout:stop (coevas._loop)
