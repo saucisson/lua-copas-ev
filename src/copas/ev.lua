@@ -370,7 +370,6 @@ function Coevas.accept (coevas, skt)
         coevas.sleep (1, on_read)
       else
         local on_read = ev.IO.new (function (loop, watcher)
-          print "here"
           watcher:stop (loop)
           coevas.wakeup (co)
         end, socket:getfd (), ev.READ)
