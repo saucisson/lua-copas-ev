@@ -5,9 +5,10 @@ local coromake = require "coroutine.make"
 local Coevas = {}
 
 local Socket = {
-  Tcp  = {},
-  Udp  = {},
-  Unix = {},
+  Tcp   = {},
+  Udp   = {},
+  Unix  = {},
+  Dummy = {},
 }
 
 function Coevas.new ()
@@ -261,7 +262,6 @@ function Coevas.step (coevas)
       return true
     end
   end
-  
   return false
 end
 
@@ -294,7 +294,9 @@ function Coevas.wrap (coevas, socket, sslparams)
   if coevas.raw (socket) ~= socket then
     return socket
   end
-  socket:settimeout (0)
+  if socket.settimeout then
+    socket:settimeout (0)
+  end
   local prefix = string.sub (tostring (socket), 1, 3)
   if     prefix == "uni" then
     return setmetatable ({
@@ -320,6 +322,12 @@ function Coevas.wrap (coevas, socket, sslparams)
       _socket = socket,
       _ssl    = sslparams,
     }, Socket.Tcp)
+  else
+    return setmetatable ({
+      _coevas = coevas,
+      _socket = socket,
+      _ssl    = sslparams,
+    }, Socket.Dummy)
   end
 end
 
@@ -327,7 +335,9 @@ function Coevas.raw (coevas, socket)
   local mt = getmetatable (socket)
   if mt == Socket.Tcp .__metatable
   or mt == Socket.Udp .__metatable
-  or mt == Socket.Unix.__metatable then
+  or mt == Socket.Unix.__metatable
+  or mt == Socket.Dummy.__metatable
+  then
     assert (socket._coevas == coevas)
     return socket._socket
   else
@@ -433,7 +443,7 @@ function Coevas.dohandshake (coevas, skt, sslparams)
 end
 
 function Coevas.handler (coevas, connhandler, sslparams)
-  return function (socket, ...) 
+  return function (socket, ...)
     socket = coevas.wrap (socket)
     if sslparams then
       socket:dohandshake (sslparams)
@@ -709,6 +719,19 @@ Socket.Unix.__tostring = function (self)
   return tostring (self._socket)
 end
 Socket.Unix.__metatable = "copas-ev-unix"
+
+Socket.Dummy.__index = {
+  close = function (self)
+    return self._socket:close ()
+  end,
+  send = function (self, data, from, to)
+    return Coevas.send (self._coevas, self, data, from, to)
+  end,
+}
+Socket.Dummy.__tostring = function (self)
+  return tostring (self._socket)
+end
+Socket.Dummy.__metatable = "copas-ev-dummy"
 
 -- Module
 -- ------
