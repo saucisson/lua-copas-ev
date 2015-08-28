@@ -81,6 +81,10 @@ end
 
 local unpack = table.unpack or unpack
 
+function Coevas.running (coevas)
+  return coevas._running
+end
+
 function Coevas.addthread (coevas, f, ...)
   local args = { ... }
   local co   = coevas._coroutine.create (function ()
