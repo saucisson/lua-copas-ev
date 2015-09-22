@@ -624,6 +624,15 @@ Socket.Tcp.__index = {
   dohandshake = function (self, parameters)
     return Coevas.dohandshake (self._coevas, self, parameters)
   end,
+  getpeername = function (self)
+    return self._socket:getpeername ()
+  end,
+  getsockname = function (self)
+    return self._socket:getsockname ()
+  end,
+  getstats = function (self)
+    return self._socket:getstats ()
+  end,
 }
 Socket.Tcp.__tostring = function (self)
   return tostring (self._socket)
@@ -670,6 +679,15 @@ Socket.Udp.__index = {
   end,
   dohandshake = function (self, parameters)
     return Coevas.dohandshake (self._coevas, self, parameters)
+  end,
+  getpeername = function (self)
+    return self._socket:getpeername ()
+  end,
+  getsockname = function (self)
+    return self._socket:getsockname ()
+  end,
+  getstats = function (self)
+    return self._socket:getstats ()
   end,
 }
 Socket.Udp.__tostring = function (self)
