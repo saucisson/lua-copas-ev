@@ -381,7 +381,7 @@ function Coevas.accept (coevas, skt)
       return nil, err
     elseif err == "timeout" or err == "wantread" then
       if tostring (socket):sub (1, 3) == "uni" then
-        coevas.sleep (1, on_read)
+        coevas.sleep (1)
       else
         local on_read = ev.IO.new (function (loop, watcher)
           watcher:stop (loop)
