@@ -61,6 +61,7 @@ function Coevas.make_default (coevas)
   package.preload.copas = function ()
     return coevas
   end
+  _G.coroutine = coevas._coroutine
 end
 
 -- Error Handling
