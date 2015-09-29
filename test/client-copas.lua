@@ -8,11 +8,11 @@ local finished      = 0
 local nb = 0
 local start = socket.gettime ()
 
-for i = 1, nb_threads do
+for _ = 1, nb_threads do
   copas.addthread (function ()
     local skt = copas.wrap (socket.tcp ())
     skt:connect ("127.0.0.1", 8080)
-    for j = 1, nb_iterations do
+    for _ = 1, nb_iterations do
       skt:send "message\n"
       local answer = skt:receive "*l"
       assert (answer == "message")

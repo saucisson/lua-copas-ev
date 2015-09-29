@@ -12,11 +12,11 @@ local nb = 0
 --profiler:start "data.ou"
 local start = socket.gettime ()
 
-for i = 1, nb_threads do
+for _ = 1, nb_threads do
   copev.addthread (function ()
     local skt = copev.wrap (socket.tcp ())
     skt:connect ("127.0.0.1", 8080)
-    for j = 1, nb_iterations do
+    for _ = 1, nb_iterations do
       skt:send "message\n"
       local answer = skt:receive "*l"
       assert (answer == "message")
