@@ -2,7 +2,7 @@ package = "copas-ev"
 version = "master-1"
 
 source  = {
-  url = "git://github.com/saucisson/lua-copas-ev.git"
+  url = "git://github.com/saucisson/lua-copas-ev.git",
 }
 
 description = {
