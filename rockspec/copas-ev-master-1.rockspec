@@ -21,7 +21,6 @@ dependencies = {
    "lua       >= 5.1",
    "lua-ev    >= v1",
    "luasocket >= 2",
-   "luasec    >= 0",
 }
 
 build = {

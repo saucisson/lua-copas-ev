@@ -1,5 +1,6 @@
                  require "copas" -- fix socket/copas interactions
 local ev       = require "ev"
+local ssl      = pcall (require, "ssl") and require "ssl" or nil
 local coromake = require "coroutine.make"
 
 local Coevas = {}
@@ -430,7 +431,6 @@ function Coevas.connect (coevas, skt, address, port)
 end
 
 function Coevas.dohandshake (coevas, skt, sslparams)
-  local ssl = require "ssl"
   local ok, err
   local socket = coevas.wrap (coevas.raw (skt))
   socket, err = ssl.wrap (socket, sslparams)
