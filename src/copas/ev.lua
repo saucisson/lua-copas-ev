@@ -407,6 +407,9 @@ function Coevas.connect (coevas, skt, address, port)
   local sslparams = socket ~= skt and skt._ssl or nil
   repeat
     local ok, err = socket:connect (address, port)
+    if err == "already connected" then
+      ok = true
+    end
     if signal.timeout then
       return nil, err
     elseif err == "timeout" or err == "Operation already in progress" then
