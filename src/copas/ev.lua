@@ -13,14 +13,33 @@ local Socket = {
   Dummy = {},
 }
 
-function Coevas.new ()
+function Coevas.new (t)
+  t = t or {}
+  if t.autoclose == nil then
+    t.autoclose = true
+  end
+  if t.compatibilty == nil then
+    t.compatibilty = false
+  end
+  if t.clean_awaken == nil then
+    t.clean_awaken = 500
+  end
+  if t.ratio == nil then
+    t.ratio = 95
+  end
+  if t.coroutine == nil then
+    t.coroutine = coromake ()
+  end
+  if t.loop == nil then
+    t.loop = ev.Loop.new ()
+  end
   local result = {
-    autoclose    = true,
-    compatibilty = false,
-    clean_awaken = 500,
-    ratio        = 95,
-    _coroutine   = coromake (),
-    _loop        = ev.Loop.new (),
+    autoclose    = t.autoclose,
+    compatibilty = t.compatibilty,
+    clean_awaken = t.clean_awaken,
+    ratio        = t.ratio,
+    _coroutine   = t.coroutine,
+    _loop        = t.loop,
     _idle        = nil,
     _running     = nil,
     _info        = setmetatable ({}, { __mode = "k" }),
@@ -804,4 +823,6 @@ Socket.Dummy.__metatable = "copas-ev-dummy"
 -- Module
 -- ------
 
-return Coevas.new ()
+return Coevas.new {
+  loop = ev.Loop.default,
+}
