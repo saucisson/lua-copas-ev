@@ -1,6 +1,7 @@
                  require "copas" -- fix socket/copas interactions
 local ev       = require "ev"
 local ssl      = pcall (require, "ssl") and require "ssl" or nil
+local posix    = require "posix"
 local coromake = require "coroutine.make"
 
 local Coevas = {}
@@ -209,6 +210,48 @@ function Coevas.kill (coevas, co)
       socket:close ()
     end
   end
+end
+
+function Coevas.execute (coevas, command, redirects)
+  local co      = coevas._running
+  local info    = coevas._info [co]
+  local threads = coevas._threads [info._level]
+  local result  = os.tmpname ()
+  local pid         = posix.fork ()
+  if pid == 0 then
+    coevas._loop:fork ()
+    redirects = type (redirects) == "table" and redirects or {}
+    command = command
+           .. (redirects.stdin  and "  < " .. redirects.stdin  or "")
+           .. (redirects.stdout and "  > " .. redirects.stdout or "")
+           .. (redirects.stderr and " 2> " .. redirects.stderr or "")
+    local ok, reason, status = os.execute (command)
+    local file = io.open (result, "w")
+    file:write (tostring (ok    ) .. "\n")
+    file:write (tostring (reason) .. "\n")
+    file:write (tostring (status) .. "\n")
+    file:close ()
+    os.exit (0)
+  end
+  local handler = ev.Child.new (function (loop, watcher)
+    watcher:stop (loop)
+    coevas.wakeup (co)
+  end, pid, false)
+  handler:start (coevas._loop)
+  threads._ready [co] = nil
+  if info._blocking then
+    threads._blocking    [co] = handler or true
+  else
+    threads._nonblocking [co] = handler or true
+  end
+  coevas._coroutine.yield ()
+  local file   = io.open (result, "r")
+  local ok     = file:read ("*line")
+  local reason = file:read ("*line")
+  local status = file:read ("*line")
+  file:close ()
+  os.remove (result)
+  return ok == "true" and true or nil, reason, tonumber (status)
 end
 
 function Coevas.finished (coevas)
