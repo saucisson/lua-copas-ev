@@ -240,7 +240,7 @@ function Coevas.execute (coevas, command, redirects)
   if pid == 0 then
     coevas._loop:fork ()
     redirects = type (redirects) == "table" and redirects or {}
-    command = command
+    command = command:gsub ("^%s*(.-)%s*$", "%1")
            .. (redirects.stdin  and "  < " .. redirects.stdin  or "")
            .. (redirects.stdout and "  > " .. redirects.stdout or "")
            .. (redirects.stderr and " 2> " .. redirects.stderr or "")
