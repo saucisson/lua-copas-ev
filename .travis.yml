@@ -29,7 +29,7 @@ install:
   - luarocks install luasec # for tests
 
 script:
-  - luacheck --std max+busted src/*.lua test/*.lua
+  - luacheck --std max+busted src/copas/*.lua test/*.lua
   - busted --verbose --coverage --pattern=test test
 
 after_success:
