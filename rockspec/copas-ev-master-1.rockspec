@@ -20,6 +20,7 @@ dependencies = {
    "coronest  >= 1",
    "lua       >= 5.1",
    "lua-ev    >= v1",
+   "luaposix  >= 33",
    "luasocket >= 2",
 }
 
