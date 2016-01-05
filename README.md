@@ -1,5 +1,7 @@
-Copas using lua-ev
-==================
+[![Build Status](https://travis-ci.org/saucisson/lua-copas-ev.svg?branch=master)](https://travis-ci.org/saucisson/lua-copas-ev)
+[![Coverage Status](https://coveralls.io/repos/saucisson/lua-copas-ev/badge.svg?branch=master&service=github)](https://coveralls.io/github/saucisson/lua-copas-ev?branch=master)
+
+# Copas using lua-ev
 
 Copas-ev is a reimplementation of [copas](http://keplerproject.github.io/copas/)
 using [lua-ev](https://github.com/brimworks/lua-ev). It loses portability,
@@ -9,16 +11,15 @@ The first goal of this module is to be 100% compatible with copas. It only
 reimplements the core functionalities in `copas.lua`, not the ones in
 `copas.*` modules. Thus, `copas.ev` depends on `copas` to be fully usable.
 
-Install
--------
-This module is available as a Lua rock:
+## Install
+
+This module is available in [luarocks](https://luarocks.org):
 
 ````sh
     luarocks install copas-ev
 ````
 
-Usage
------
+## Usage
 
 Everywhere you are using the `copas`` module,
 replace it with `copas.ev`
@@ -34,8 +35,7 @@ the default instead of `copas`, before any `require "copas"`:
     copev.make_default ()
 ```
 
-Compatibility
--------------
+## Compatibility
 
 The default behavior of `copas.ev` should be compatible with `copas`.
 There is also a slightly incompatible mode, that automatically wraps sockets.
@@ -47,3 +47,10 @@ It can be enabled using:
 
 Moreover, `copas.ev` adds some primitives, such as missing functions in socket
 wrappers (`getpeername`, `getsockname`, `getstats`), a `unix` socket type, ...
+
+# Test
+
+Tests are written for [busted](http://olivinelabs.com/busted).
+```bash
+  busted test/*.lua
+```
