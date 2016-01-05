@@ -3,6 +3,11 @@ os: linux
 language: python
 sudo: false
 
+addons:
+  apt:
+    packages:
+      - libev-dev
+
 env:
   - LUA="lua=5.1"
   - LUA="lua=5.2"
