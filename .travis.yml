@@ -26,6 +26,7 @@ install:
   - luarocks install luacov
   - luarocks install luacov-coveralls
   - luarocks make rockspec/*-master-1.rockspec
+  - luarocks install luasec # for tests
 
 script:
   - luacheck --std max+busted src/*.lua test/*.lua
