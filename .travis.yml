@@ -33,7 +33,7 @@ script:
   - busted --verbose --coverage --pattern=test test
 
 after_success:
-  - luacov-coveralls --exclude "lua_install"
+  - luacov-coveralls --exclude "*" --include "copas/ev.lua"
 
 notifications:
   recipients:
