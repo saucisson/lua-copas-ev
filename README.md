@@ -3,6 +3,8 @@
 
 # Copas using lua-ev
 
+[![Join the chat at https://gitter.im/saucisson/lua-copas-ev](https://badges.gitter.im/saucisson/lua-copas-ev.svg)](https://gitter.im/saucisson/lua-copas-ev?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Copas-ev is a reimplementation of [copas](http://keplerproject.github.io/copas/)
 using [lua-ev](https://github.com/brimworks/lua-ev). It loses portability,
 but gains performance, by using the `libev` binding.
