@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.org/saucisson/lua-copas-ev.svg?branch=master)](https://travis-ci.org/saucisson/lua-copas-ev)
 [![Coverage Status](https://coveralls.io/repos/saucisson/lua-copas-ev/badge.svg?branch=master&service=github)](https://coveralls.io/github/saucisson/lua-copas-ev?branch=master)
+[![Join the chat at https://gitter.im/saucisson/lua-copas-ev](https://badges.gitter.im/saucisson/lua-copas-ev.svg)](https://gitter.im/saucisson/lua-copas-ev?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 # Copas using lua-ev
 
