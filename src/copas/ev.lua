@@ -100,7 +100,7 @@ end
 -- Scheduling
 -- ----------
 
-local unpack = table.unpack or unpack
+local unpack = table.unpack or _G.unpack
 
 function Coevas.running (coevas)
   return coevas._running
