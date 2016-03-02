@@ -21,7 +21,7 @@ matrix:
 
 before_install:
   - pip install hererocks
-  - hererocks lua_install -r^ --$LUA # --compat=none
+  - hererocks lua_install -r^ --$LUA
   - export PATH=$PATH:$PWD/lua_install/bin
 
 install:
@@ -33,7 +33,7 @@ install:
   - luarocks install luasec # for tests
 
 script:
-  - luacheck --std max+busted src/copas/*.lua test/*.lua
+  - luacheck --std min+busted src/copas/*.lua test/*.lua
   - busted --verbose --coverage --pattern=test test
 
 after_success:
