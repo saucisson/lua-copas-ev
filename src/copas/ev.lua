@@ -324,6 +324,7 @@ function Coevas.step (coevas)
         end
       end
       if coevas._coroutine.status (co) == "dead" then
+        collectgarbage ()
         coevas.kill (co)
       end
       return true
